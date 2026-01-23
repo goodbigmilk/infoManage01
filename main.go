@@ -57,6 +57,8 @@ func main() {
 	// 关联数据API（用于下拉框）
 	api.HandleFunc("/schools/names", getSchoolNames).Methods("GET")
 	api.HandleFunc("/ships/names", getShipNames).Methods("GET")
+	api.HandleFunc("/companies/names", getCompanyNames).Methods("GET")
+	api.HandleFunc("/managements/names", getManagementNames).Methods("GET")
 
 	// 船员相关API（注意：search路由必须在{id}路由之前）
 	api.HandleFunc("/crew/search", searchCrew).Methods("GET")

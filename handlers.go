@@ -56,10 +56,58 @@ func getShipNames(w http.ResponseWriter, r *http.Request) {
 	sendSuccess(w, ships)
 }
 
+// 获取所有船公司名称列表（用于下拉框）
+func getCompanyNames(w http.ResponseWriter, r *http.Request) {
+	rows, err := db.Query("SELECT id, name FROM company ORDER BY name")
+	if err != nil {
+		sendError(w, http.StatusInternalServerError, "查询失败: "+err.Error())
+		return
+	}
+	defer rows.Close()
+
+	var companies []map[string]interface{}
+	for rows.Next() {
+		var id int
+		var name string
+		if err := rows.Scan(&id, &name); err != nil {
+			continue
+		}
+		companies = append(companies, map[string]interface{}{
+			"id":   id,
+			"name": name,
+		})
+	}
+	sendSuccess(w, companies)
+}
+
+// 获取所有管理公司名称列表（用于下拉框）
+func getManagementNames(w http.ResponseWriter, r *http.Request) {
+	rows, err := db.Query("SELECT id, name FROM management ORDER BY name")
+	if err != nil {
+		sendError(w, http.StatusInternalServerError, "查询失败: "+err.Error())
+		return
+	}
+	defer rows.Close()
+
+	var managements []map[string]interface{}
+	for rows.Next() {
+		var id int
+		var name string
+		if err := rows.Scan(&id, &name); err != nil {
+			continue
+		}
+		managements = append(managements, map[string]interface{}{
+			"id":   id,
+			"name": name,
+		})
+	}
+	sendSuccess(w, managements)
+}
+
 // ==================== 船员相关处理函数 ====================
 
 func getCrewList(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.Query("SELECT id, name, region, age, education, graduation_school, status, position, previous_ships, current_ship, phone, height, weight, experience, is_professional FROM crew ORDER BY id DESC")
+	rows, err := db.Query("SELECT id, name, region, birth_date, education, graduation_school, status, position, current_ship, phone, height, weight, experience, is_professional, colleague_evaluation, company_evaluation, remark FROM crew ORDER BY id DESC")
 	if err != nil {
 		sendError(w, http.StatusInternalServerError, "查询失败: "+err.Error())
 		return
@@ -69,7 +117,7 @@ func getCrewList(w http.ResponseWriter, r *http.Request) {
 	var crews []Crew
 	for rows.Next() {
 		var c Crew
-		err := rows.Scan(&c.ID, &c.Name, &c.Region, &c.Age, &c.Education, &c.GraduationSchool, &c.Status, &c.Position, &c.PreviousShips, &c.CurrentShip, &c.Phone, &c.Height, &c.Weight, &c.Experience, &c.IsProfessional)
+		err := rows.Scan(&c.ID, &c.Name, &c.Region, &c.BirthDate, &c.Education, &c.GraduationSchool, &c.Status, &c.Position, &c.CurrentShip, &c.Phone, &c.Height, &c.Weight, &c.Experience, &c.IsProfessional, &c.ColleagueEvaluation, &c.CompanyEvaluation, &c.Remark)
 		if err != nil {
 			continue
 		}
@@ -86,8 +134,8 @@ func getCrew(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var c Crew
-	err = db.QueryRow("SELECT id, name, region, age, education, graduation_school, status, position, previous_ships, current_ship, phone, height, weight, experience, is_professional FROM crew WHERE id = ?", id).
-		Scan(&c.ID, &c.Name, &c.Region, &c.Age, &c.Education, &c.GraduationSchool, &c.Status, &c.Position, &c.PreviousShips, &c.CurrentShip, &c.Phone, &c.Height, &c.Weight, &c.Experience, &c.IsProfessional)
+	err = db.QueryRow("SELECT id, name, region, birth_date, education, graduation_school, status, position, current_ship, phone, height, weight, experience, is_professional, colleague_evaluation, company_evaluation, remark FROM crew WHERE id = ?", id).
+		Scan(&c.ID, &c.Name, &c.Region, &c.BirthDate, &c.Education, &c.GraduationSchool, &c.Status, &c.Position, &c.CurrentShip, &c.Phone, &c.Height, &c.Weight, &c.Experience, &c.IsProfessional, &c.ColleagueEvaluation, &c.CompanyEvaluation, &c.Remark)
 
 	if err == sql.ErrNoRows {
 		sendError(w, http.StatusNotFound, "船员不存在")
@@ -107,9 +155,9 @@ func createCrew(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := db.Exec(`INSERT INTO crew (name, region, age, education, graduation_school, status, position, previous_ships, current_ship, phone, height, weight, experience, is_professional) 
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		c.Name, c.Region, c.Age, c.Education, c.GraduationSchool, c.Status, c.Position, c.PreviousShips, c.CurrentShip, c.Phone, c.Height, c.Weight, c.Experience, c.IsProfessional)
+	result, err := db.Exec(`INSERT INTO crew (name, region, birth_date, education, graduation_school, status, position, current_ship, phone, height, weight, experience, is_professional, colleague_evaluation, company_evaluation, remark) 
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		c.Name, c.Region, c.BirthDate, c.Education, c.GraduationSchool, c.Status, c.Position, c.CurrentShip, c.Phone, c.Height, c.Weight, c.Experience, c.IsProfessional, c.ColleagueEvaluation, c.CompanyEvaluation, c.Remark)
 
 	if err != nil {
 		sendError(w, http.StatusInternalServerError, "创建失败: "+err.Error())
@@ -134,8 +182,8 @@ func updateCrew(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = db.Exec(`UPDATE crew SET name=?, region=?, age=?, education=?, graduation_school=?, status=?, position=?, previous_ships=?, current_ship=?, phone=?, height=?, weight=?, experience=?, is_professional=? WHERE id=?`,
-		c.Name, c.Region, c.Age, c.Education, c.GraduationSchool, c.Status, c.Position, c.PreviousShips, c.CurrentShip, c.Phone, c.Height, c.Weight, c.Experience, c.IsProfessional, id)
+	_, err = db.Exec(`UPDATE crew SET name=?, region=?, birth_date=?, education=?, graduation_school=?, status=?, position=?, current_ship=?, phone=?, height=?, weight=?, experience=?, is_professional=?, colleague_evaluation=?, company_evaluation=?, remark=? WHERE id=?`,
+		c.Name, c.Region, c.BirthDate, c.Education, c.GraduationSchool, c.Status, c.Position, c.CurrentShip, c.Phone, c.Height, c.Weight, c.Experience, c.IsProfessional, c.ColleagueEvaluation, c.CompanyEvaluation, c.Remark, id)
 
 	if err != nil {
 		sendError(w, http.StatusInternalServerError, "更新失败: "+err.Error())
@@ -164,8 +212,8 @@ func deleteCrew(w http.ResponseWriter, r *http.Request) {
 
 func searchCrew(w http.ResponseWriter, r *http.Request) {
 	keyword := r.URL.Query().Get("keyword")
-	query := "SELECT id, name, region, age, education, graduation_school, status, position, previous_ships, current_ship, phone, height, weight, experience, is_professional FROM crew"
-	searchFields := []string{"name", "region", "education", "graduation_school", "status", "position", "previous_ships", "current_ship", "phone", "experience"}
+	query := "SELECT id, name, region, birth_date, education, graduation_school, status, position, current_ship, phone, height, weight, experience, is_professional, colleague_evaluation, company_evaluation, remark FROM crew"
+	searchFields := []string{"name", "region", "education", "graduation_school", "status", "position", "current_ship", "phone", "experience", "colleague_evaluation", "company_evaluation", "remark"}
 
 	sqlQuery, args := buildSearchQuery(query, keyword, searchFields)
 	sqlQuery += " ORDER BY id DESC"
@@ -180,7 +228,7 @@ func searchCrew(w http.ResponseWriter, r *http.Request) {
 	var crews []Crew
 	for rows.Next() {
 		var c Crew
-		rows.Scan(&c.ID, &c.Name, &c.Region, &c.Age, &c.Education, &c.GraduationSchool, &c.Status, &c.Position, &c.PreviousShips, &c.CurrentShip, &c.Phone, &c.Height, &c.Weight, &c.Experience, &c.IsProfessional)
+		rows.Scan(&c.ID, &c.Name, &c.Region, &c.BirthDate, &c.Education, &c.GraduationSchool, &c.Status, &c.Position, &c.CurrentShip, &c.Phone, &c.Height, &c.Weight, &c.Experience, &c.IsProfessional, &c.ColleagueEvaluation, &c.CompanyEvaluation, &c.Remark)
 		crews = append(crews, c)
 	}
 	sendSuccess(w, crews)
@@ -193,7 +241,7 @@ func filterCrew(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := "SELECT id, name, region, age, education, graduation_school, status, position, previous_ships, current_ship, phone, height, weight, experience, is_professional FROM crew"
+	query := "SELECT id, name, region, birth_date, education, graduation_school, status, position, current_ship, phone, height, weight, experience, is_professional, colleague_evaluation, company_evaluation, remark FROM crew"
 	sqlQuery, args := buildFilterQuery(query, filters)
 	sqlQuery += " ORDER BY id DESC"
 
@@ -207,7 +255,7 @@ func filterCrew(w http.ResponseWriter, r *http.Request) {
 	var crews []Crew
 	for rows.Next() {
 		var c Crew
-		rows.Scan(&c.ID, &c.Name, &c.Region, &c.Age, &c.Education, &c.GraduationSchool, &c.Status, &c.Position, &c.PreviousShips, &c.CurrentShip, &c.Phone, &c.Height, &c.Weight, &c.Experience, &c.IsProfessional)
+		rows.Scan(&c.ID, &c.Name, &c.Region, &c.BirthDate, &c.Education, &c.GraduationSchool, &c.Status, &c.Position, &c.CurrentShip, &c.Phone, &c.Height, &c.Weight, &c.Experience, &c.IsProfessional, &c.ColleagueEvaluation, &c.CompanyEvaluation, &c.Remark)
 		crews = append(crews, c)
 	}
 	sendSuccess(w, crews)
@@ -216,7 +264,7 @@ func filterCrew(w http.ResponseWriter, r *http.Request) {
 // ==================== 船舶相关处理函数 ====================
 
 func getShipList(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.Query("SELECT id, name, ship_age, ship_class, owner_company, crew_company, engine_model, power, gross_tonnage, deadweight_tonnage, port_of_registry, ship_condition, salary_status FROM ship ORDER BY id DESC")
+	rows, err := db.Query("SELECT id, name, build_date, ship_class, owner_company, crew_company, engine_model, power, gross_tonnage, deadweight_tonnage, port_of_registry, ship_condition, salary_status, living_expense, has_pension, can_open_seal, personnel_phone, company_type, remark FROM ship ORDER BY id DESC")
 	if err != nil {
 		sendError(w, http.StatusInternalServerError, "查询失败: "+err.Error())
 		return
@@ -226,7 +274,7 @@ func getShipList(w http.ResponseWriter, r *http.Request) {
 	var ships []Ship
 	for rows.Next() {
 		var s Ship
-		rows.Scan(&s.ID, &s.Name, &s.ShipAge, &s.ShipClass, &s.OwnerCompany, &s.CrewCompany, &s.EngineModel, &s.Power, &s.GrossTonnage, &s.DeadweightTonnage, &s.PortOfRegistry, &s.ShipCondition, &s.SalaryStatus)
+		rows.Scan(&s.ID, &s.Name, &s.BuildDate, &s.ShipClass, &s.OwnerCompany, &s.CrewCompany, &s.EngineModel, &s.Power, &s.GrossTonnage, &s.DeadweightTonnage, &s.PortOfRegistry, &s.ShipCondition, &s.SalaryStatus, &s.LivingExpense, &s.HasPension, &s.CanOpenSeal, &s.PersonnelPhone, &s.CompanyType, &s.Remark)
 		ships = append(ships, s)
 	}
 	sendSuccess(w, ships)
@@ -240,8 +288,8 @@ func getShip(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var s Ship
-	err = db.QueryRow("SELECT id, name, ship_age, ship_class, owner_company, crew_company, engine_model, power, gross_tonnage, deadweight_tonnage, port_of_registry, ship_condition, salary_status FROM ship WHERE id = ?", id).
-		Scan(&s.ID, &s.Name, &s.ShipAge, &s.ShipClass, &s.OwnerCompany, &s.CrewCompany, &s.EngineModel, &s.Power, &s.GrossTonnage, &s.DeadweightTonnage, &s.PortOfRegistry, &s.ShipCondition, &s.SalaryStatus)
+	err = db.QueryRow("SELECT id, name, build_date, ship_class, owner_company, crew_company, engine_model, power, gross_tonnage, deadweight_tonnage, port_of_registry, ship_condition, salary_status, living_expense, has_pension, can_open_seal, personnel_phone, company_type, remark FROM ship WHERE id = ?", id).
+		Scan(&s.ID, &s.Name, &s.BuildDate, &s.ShipClass, &s.OwnerCompany, &s.CrewCompany, &s.EngineModel, &s.Power, &s.GrossTonnage, &s.DeadweightTonnage, &s.PortOfRegistry, &s.ShipCondition, &s.SalaryStatus, &s.LivingExpense, &s.HasPension, &s.CanOpenSeal, &s.PersonnelPhone, &s.CompanyType, &s.Remark)
 
 	if err == sql.ErrNoRows {
 		sendError(w, http.StatusNotFound, "船舶不存在")
@@ -261,9 +309,9 @@ func createShip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := db.Exec(`INSERT INTO ship (name, ship_age, ship_class, owner_company, crew_company, engine_model, power, gross_tonnage, deadweight_tonnage, port_of_registry, ship_condition, salary_status) 
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		s.Name, s.ShipAge, s.ShipClass, s.OwnerCompany, s.CrewCompany, s.EngineModel, s.Power, s.GrossTonnage, s.DeadweightTonnage, s.PortOfRegistry, s.ShipCondition, s.SalaryStatus)
+	result, err := db.Exec(`INSERT INTO ship (name, build_date, ship_class, owner_company, crew_company, engine_model, power, gross_tonnage, deadweight_tonnage, port_of_registry, ship_condition, salary_status, living_expense, has_pension, can_open_seal, personnel_phone, company_type, remark) 
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		s.Name, s.BuildDate, s.ShipClass, s.OwnerCompany, s.CrewCompany, s.EngineModel, s.Power, s.GrossTonnage, s.DeadweightTonnage, s.PortOfRegistry, s.ShipCondition, s.SalaryStatus, s.LivingExpense, s.HasPension, s.CanOpenSeal, s.PersonnelPhone, s.CompanyType, s.Remark)
 
 	if err != nil {
 		sendError(w, http.StatusInternalServerError, "创建失败: "+err.Error())
@@ -288,8 +336,8 @@ func updateShip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = db.Exec(`UPDATE ship SET name=?, ship_age=?, ship_class=?, owner_company=?, crew_company=?, engine_model=?, power=?, gross_tonnage=?, deadweight_tonnage=?, port_of_registry=?, ship_condition=?, salary_status=? WHERE id=?`,
-		s.Name, s.ShipAge, s.ShipClass, s.OwnerCompany, s.CrewCompany, s.EngineModel, s.Power, s.GrossTonnage, s.DeadweightTonnage, s.PortOfRegistry, s.ShipCondition, s.SalaryStatus, id)
+	_, err = db.Exec(`UPDATE ship SET name=?, build_date=?, ship_class=?, owner_company=?, crew_company=?, engine_model=?, power=?, gross_tonnage=?, deadweight_tonnage=?, port_of_registry=?, ship_condition=?, salary_status=?, living_expense=?, has_pension=?, can_open_seal=?, personnel_phone=?, company_type=?, remark=? WHERE id=?`,
+		s.Name, s.BuildDate, s.ShipClass, s.OwnerCompany, s.CrewCompany, s.EngineModel, s.Power, s.GrossTonnage, s.DeadweightTonnage, s.PortOfRegistry, s.ShipCondition, s.SalaryStatus, s.LivingExpense, s.HasPension, s.CanOpenSeal, s.PersonnelPhone, s.CompanyType, s.Remark, id)
 
 	if err != nil {
 		sendError(w, http.StatusInternalServerError, "更新失败: "+err.Error())
@@ -318,8 +366,8 @@ func deleteShip(w http.ResponseWriter, r *http.Request) {
 
 func searchShip(w http.ResponseWriter, r *http.Request) {
 	keyword := r.URL.Query().Get("keyword")
-	query := "SELECT id, name, ship_age, ship_class, owner_company, crew_company, engine_model, power, gross_tonnage, deadweight_tonnage, port_of_registry, ship_condition, salary_status FROM ship"
-	searchFields := []string{"name", "ship_class", "owner_company", "crew_company", "engine_model", "port_of_registry", "ship_condition", "salary_status"}
+	query := "SELECT id, name, build_date, ship_class, owner_company, crew_company, engine_model, power, gross_tonnage, deadweight_tonnage, port_of_registry, ship_condition, salary_status, living_expense, has_pension, can_open_seal, personnel_phone, company_type, remark FROM ship"
+	searchFields := []string{"name", "ship_class", "owner_company", "crew_company", "engine_model", "port_of_registry", "ship_condition", "salary_status", "living_expense", "personnel_phone", "company_type", "remark"}
 
 	sqlQuery, args := buildSearchQuery(query, keyword, searchFields)
 	sqlQuery += " ORDER BY id DESC"
@@ -334,7 +382,7 @@ func searchShip(w http.ResponseWriter, r *http.Request) {
 	var ships []Ship
 	for rows.Next() {
 		var s Ship
-		rows.Scan(&s.ID, &s.Name, &s.ShipAge, &s.ShipClass, &s.OwnerCompany, &s.CrewCompany, &s.EngineModel, &s.Power, &s.GrossTonnage, &s.DeadweightTonnage, &s.PortOfRegistry, &s.ShipCondition, &s.SalaryStatus)
+		rows.Scan(&s.ID, &s.Name, &s.BuildDate, &s.ShipClass, &s.OwnerCompany, &s.CrewCompany, &s.EngineModel, &s.Power, &s.GrossTonnage, &s.DeadweightTonnage, &s.PortOfRegistry, &s.ShipCondition, &s.SalaryStatus, &s.LivingExpense, &s.HasPension, &s.CanOpenSeal, &s.PersonnelPhone, &s.CompanyType, &s.Remark)
 		ships = append(ships, s)
 	}
 	sendSuccess(w, ships)
@@ -347,7 +395,7 @@ func filterShip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := "SELECT id, name, ship_age, ship_class, owner_company, crew_company, engine_model, power, gross_tonnage, deadweight_tonnage, port_of_registry, ship_condition, salary_status FROM ship"
+	query := "SELECT id, name, build_date, ship_class, owner_company, crew_company, engine_model, power, gross_tonnage, deadweight_tonnage, port_of_registry, ship_condition, salary_status, living_expense, has_pension, can_open_seal, personnel_phone, company_type, remark FROM ship"
 	sqlQuery, args := buildFilterQuery(query, filters)
 	sqlQuery += " ORDER BY id DESC"
 
@@ -361,7 +409,7 @@ func filterShip(w http.ResponseWriter, r *http.Request) {
 	var ships []Ship
 	for rows.Next() {
 		var s Ship
-		rows.Scan(&s.ID, &s.Name, &s.ShipAge, &s.ShipClass, &s.OwnerCompany, &s.CrewCompany, &s.EngineModel, &s.Power, &s.GrossTonnage, &s.DeadweightTonnage, &s.PortOfRegistry, &s.ShipCondition, &s.SalaryStatus)
+		rows.Scan(&s.ID, &s.Name, &s.BuildDate, &s.ShipClass, &s.OwnerCompany, &s.CrewCompany, &s.EngineModel, &s.Power, &s.GrossTonnage, &s.DeadweightTonnage, &s.PortOfRegistry, &s.ShipCondition, &s.SalaryStatus, &s.LivingExpense, &s.HasPension, &s.CanOpenSeal, &s.PersonnelPhone, &s.CompanyType, &s.Remark)
 		ships = append(ships, s)
 	}
 	sendSuccess(w, ships)
@@ -522,8 +570,30 @@ func filterSchool(w http.ResponseWriter, r *http.Request) {
 
 // ==================== 船公司相关处理函数 ====================
 
+// 查询公司拥有的船舶（根据owner_company字段）
+func getCompanyShips(companyName string) []string {
+	if companyName == "" {
+		return []string{}
+	}
+	rows, err := db.Query("SELECT name FROM ship WHERE owner_company = ? ORDER BY name", companyName)
+	if err != nil {
+		return []string{}
+	}
+	defer rows.Close()
+
+	var ships []string
+	for rows.Next() {
+		var shipName string
+		if err := rows.Scan(&shipName); err != nil {
+			continue
+		}
+		ships = append(ships, shipName)
+	}
+	return ships
+}
+
 func getCompanyList(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.Query("SELECT id, name, address, ships, contact_phone FROM company ORDER BY id DESC")
+	rows, err := db.Query("SELECT id, name, address, contact_phone, remark FROM company ORDER BY id DESC")
 	if err != nil {
 		sendError(w, http.StatusInternalServerError, "查询失败: "+err.Error())
 		return
@@ -533,7 +603,8 @@ func getCompanyList(w http.ResponseWriter, r *http.Request) {
 	var companies []Company
 	for rows.Next() {
 		var c Company
-		rows.Scan(&c.ID, &c.Name, &c.Address, &c.Ships, &c.ContactPhone)
+		rows.Scan(&c.ID, &c.Name, &c.Address, &c.ContactPhone, &c.Remark)
+		c.Ships = getCompanyShips(c.Name)
 		companies = append(companies, c)
 	}
 	sendSuccess(w, companies)
@@ -547,8 +618,8 @@ func getCompany(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var c Company
-	err = db.QueryRow("SELECT id, name, address, ships, contact_phone FROM company WHERE id = ?", id).
-		Scan(&c.ID, &c.Name, &c.Address, &c.Ships, &c.ContactPhone)
+	err = db.QueryRow("SELECT id, name, address, contact_phone, remark FROM company WHERE id = ?", id).
+		Scan(&c.ID, &c.Name, &c.Address, &c.ContactPhone, &c.Remark)
 
 	if err == sql.ErrNoRows {
 		sendError(w, http.StatusNotFound, "船公司不存在")
@@ -558,6 +629,7 @@ func getCompany(w http.ResponseWriter, r *http.Request) {
 		sendError(w, http.StatusInternalServerError, "查询失败: "+err.Error())
 		return
 	}
+	c.Ships = getCompanyShips(c.Name)
 	sendSuccess(w, c)
 }
 
@@ -568,8 +640,8 @@ func createCompany(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := db.Exec(`INSERT INTO company (name, address, ships, contact_phone) VALUES (?, ?, ?, ?)`,
-		c.Name, c.Address, c.Ships, c.ContactPhone)
+	result, err := db.Exec(`INSERT INTO company (name, address, contact_phone, remark) VALUES (?, ?, ?, ?)`,
+		c.Name, c.Address, c.ContactPhone, c.Remark)
 
 	if err != nil {
 		sendError(w, http.StatusInternalServerError, "创建失败: "+err.Error())
@@ -594,8 +666,8 @@ func updateCompany(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = db.Exec(`UPDATE company SET name=?, address=?, ships=?, contact_phone=? WHERE id=?`,
-		c.Name, c.Address, c.Ships, c.ContactPhone, id)
+	_, err = db.Exec(`UPDATE company SET name=?, address=?, contact_phone=?, remark=? WHERE id=?`,
+		c.Name, c.Address, c.ContactPhone, c.Remark, id)
 
 	if err != nil {
 		sendError(w, http.StatusInternalServerError, "更新失败: "+err.Error())
@@ -624,8 +696,8 @@ func deleteCompany(w http.ResponseWriter, r *http.Request) {
 
 func searchCompany(w http.ResponseWriter, r *http.Request) {
 	keyword := r.URL.Query().Get("keyword")
-	query := "SELECT id, name, address, ships, contact_phone FROM company"
-	searchFields := []string{"name", "address", "ships", "contact_phone"}
+	query := "SELECT id, name, address, contact_phone, remark FROM company"
+	searchFields := []string{"name", "address", "contact_phone", "remark"}
 
 	sqlQuery, args := buildSearchQuery(query, keyword, searchFields)
 	sqlQuery += " ORDER BY id DESC"
@@ -640,7 +712,8 @@ func searchCompany(w http.ResponseWriter, r *http.Request) {
 	var companies []Company
 	for rows.Next() {
 		var c Company
-		rows.Scan(&c.ID, &c.Name, &c.Address, &c.Ships, &c.ContactPhone)
+		rows.Scan(&c.ID, &c.Name, &c.Address, &c.ContactPhone, &c.Remark)
+		c.Ships = getCompanyShips(c.Name)
 		companies = append(companies, c)
 	}
 	sendSuccess(w, companies)
@@ -653,7 +726,7 @@ func filterCompany(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := "SELECT id, name, address, ships, contact_phone FROM company"
+	query := "SELECT id, name, address, contact_phone, remark FROM company"
 	sqlQuery, args := buildFilterQuery(query, filters)
 	sqlQuery += " ORDER BY id DESC"
 
@@ -667,7 +740,8 @@ func filterCompany(w http.ResponseWriter, r *http.Request) {
 	var companies []Company
 	for rows.Next() {
 		var c Company
-		rows.Scan(&c.ID, &c.Name, &c.Address, &c.Ships, &c.ContactPhone)
+		rows.Scan(&c.ID, &c.Name, &c.Address, &c.ContactPhone, &c.Remark)
+		c.Ships = getCompanyShips(c.Name)
 		companies = append(companies, c)
 	}
 	sendSuccess(w, companies)
@@ -675,8 +749,30 @@ func filterCompany(w http.ResponseWriter, r *http.Request) {
 
 // ==================== 管理公司相关处理函数 ====================
 
+// 查询管理公司管理的船舶（根据crew_company字段）
+func getManagementShips(managementName string) []string {
+	if managementName == "" {
+		return []string{}
+	}
+	rows, err := db.Query("SELECT name FROM ship WHERE crew_company = ? ORDER BY name", managementName)
+	if err != nil {
+		return []string{}
+	}
+	defer rows.Close()
+
+	var ships []string
+	for rows.Next() {
+		var shipName string
+		if err := rows.Scan(&shipName); err != nil {
+			continue
+		}
+		ships = append(ships, shipName)
+	}
+	return ships
+}
+
 func getManagementList(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.Query("SELECT id, name, address, managed_ships, reputation, salary_status, contact_phone FROM management ORDER BY id DESC")
+	rows, err := db.Query("SELECT id, name, address, reputation, salary_status, contact_phone, remark FROM management ORDER BY id DESC")
 	if err != nil {
 		sendError(w, http.StatusInternalServerError, "查询失败: "+err.Error())
 		return
@@ -686,7 +782,8 @@ func getManagementList(w http.ResponseWriter, r *http.Request) {
 	var managements []Management
 	for rows.Next() {
 		var m Management
-		rows.Scan(&m.ID, &m.Name, &m.Address, &m.ManagedShips, &m.Reputation, &m.SalaryStatus, &m.ContactPhone)
+		rows.Scan(&m.ID, &m.Name, &m.Address, &m.Reputation, &m.SalaryStatus, &m.ContactPhone, &m.Remark)
+		m.Ships = getManagementShips(m.Name)
 		managements = append(managements, m)
 	}
 	sendSuccess(w, managements)
@@ -700,8 +797,8 @@ func getManagement(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var m Management
-	err = db.QueryRow("SELECT id, name, address, managed_ships, reputation, salary_status, contact_phone FROM management WHERE id = ?", id).
-		Scan(&m.ID, &m.Name, &m.Address, &m.ManagedShips, &m.Reputation, &m.SalaryStatus, &m.ContactPhone)
+	err = db.QueryRow("SELECT id, name, address, reputation, salary_status, contact_phone, remark FROM management WHERE id = ?", id).
+		Scan(&m.ID, &m.Name, &m.Address, &m.Reputation, &m.SalaryStatus, &m.ContactPhone, &m.Remark)
 
 	if err == sql.ErrNoRows {
 		sendError(w, http.StatusNotFound, "管理公司不存在")
@@ -711,6 +808,7 @@ func getManagement(w http.ResponseWriter, r *http.Request) {
 		sendError(w, http.StatusInternalServerError, "查询失败: "+err.Error())
 		return
 	}
+	m.Ships = getManagementShips(m.Name)
 	sendSuccess(w, m)
 }
 
@@ -721,8 +819,8 @@ func createManagement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := db.Exec(`INSERT INTO management (name, address, managed_ships, reputation, salary_status, contact_phone) VALUES (?, ?, ?, ?, ?, ?)`,
-		m.Name, m.Address, m.ManagedShips, m.Reputation, m.SalaryStatus, m.ContactPhone)
+	result, err := db.Exec(`INSERT INTO management (name, address, reputation, salary_status, contact_phone, remark) VALUES (?, ?, ?, ?, ?, ?)`,
+		m.Name, m.Address, m.Reputation, m.SalaryStatus, m.ContactPhone, m.Remark)
 
 	if err != nil {
 		sendError(w, http.StatusInternalServerError, "创建失败: "+err.Error())
@@ -747,8 +845,8 @@ func updateManagement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = db.Exec(`UPDATE management SET name=?, address=?, managed_ships=?, reputation=?, salary_status=?, contact_phone=? WHERE id=?`,
-		m.Name, m.Address, m.ManagedShips, m.Reputation, m.SalaryStatus, m.ContactPhone, id)
+	_, err = db.Exec(`UPDATE management SET name=?, address=?, reputation=?, salary_status=?, contact_phone=?, remark=? WHERE id=?`,
+		m.Name, m.Address, m.Reputation, m.SalaryStatus, m.ContactPhone, m.Remark, id)
 
 	if err != nil {
 		sendError(w, http.StatusInternalServerError, "更新失败: "+err.Error())
@@ -777,8 +875,8 @@ func deleteManagement(w http.ResponseWriter, r *http.Request) {
 
 func searchManagement(w http.ResponseWriter, r *http.Request) {
 	keyword := r.URL.Query().Get("keyword")
-	query := "SELECT id, name, address, managed_ships, reputation, salary_status, contact_phone FROM management"
-	searchFields := []string{"name", "address", "managed_ships", "reputation", "salary_status", "contact_phone"}
+	query := "SELECT id, name, address, reputation, salary_status, contact_phone, remark FROM management"
+	searchFields := []string{"name", "address", "reputation", "salary_status", "contact_phone", "remark"}
 
 	sqlQuery, args := buildSearchQuery(query, keyword, searchFields)
 	sqlQuery += " ORDER BY id DESC"
@@ -793,7 +891,8 @@ func searchManagement(w http.ResponseWriter, r *http.Request) {
 	var managements []Management
 	for rows.Next() {
 		var m Management
-		rows.Scan(&m.ID, &m.Name, &m.Address, &m.ManagedShips, &m.Reputation, &m.SalaryStatus, &m.ContactPhone)
+		rows.Scan(&m.ID, &m.Name, &m.Address, &m.Reputation, &m.SalaryStatus, &m.ContactPhone, &m.Remark)
+		m.Ships = getManagementShips(m.Name)
 		managements = append(managements, m)
 	}
 	sendSuccess(w, managements)
@@ -806,7 +905,7 @@ func filterManagement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := "SELECT id, name, address, managed_ships, reputation, salary_status, contact_phone FROM management"
+	query := "SELECT id, name, address, reputation, salary_status, contact_phone, remark FROM management"
 	sqlQuery, args := buildFilterQuery(query, filters)
 	sqlQuery += " ORDER BY id DESC"
 
@@ -820,7 +919,8 @@ func filterManagement(w http.ResponseWriter, r *http.Request) {
 	var managements []Management
 	for rows.Next() {
 		var m Management
-		rows.Scan(&m.ID, &m.Name, &m.Address, &m.ManagedShips, &m.Reputation, &m.SalaryStatus, &m.ContactPhone)
+		rows.Scan(&m.ID, &m.Name, &m.Address, &m.Reputation, &m.SalaryStatus, &m.ContactPhone, &m.Remark)
+		m.Ships = getManagementShips(m.Name)
 		managements = append(managements, m)
 	}
 	sendSuccess(w, managements)

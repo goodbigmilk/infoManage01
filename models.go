@@ -11,28 +11,30 @@ import (
 
 // 船员模型
 type Crew struct {
-	ID               int    `json:"id"`
-	Name             string `json:"name"`
-	Region           string `json:"region"`
-	Age              int    `json:"age"`
-	Education        string `json:"education"`
-	GraduationSchool string `json:"graduation_school"`
-	Status           string `json:"status"`
-	Position         string `json:"position"`
-	PreviousShips    string `json:"previous_ships"`
-	CurrentShip      string `json:"current_ship"`
-	Phone            string `json:"phone"`
-	Height           int    `json:"height"`
-	Weight           int    `json:"weight"`
-	Experience       string `json:"experience"`
-	IsProfessional   bool   `json:"is_professional"`
+	ID                 int    `json:"id"`
+	Name               string `json:"name"`
+	Region             string `json:"region"`
+	BirthDate          string `json:"birth_date"`
+	Education          string `json:"education"`
+	GraduationSchool   string `json:"graduation_school"`
+	Status             string `json:"status"`
+	Position           string `json:"position"`
+	CurrentShip        string `json:"current_ship"`
+	Phone              string `json:"phone"`
+	Height             int    `json:"height"`
+	Weight             int    `json:"weight"`
+	Experience         string `json:"experience"`
+	IsProfessional     bool   `json:"is_professional"`
+	ColleagueEvaluation string `json:"colleague_evaluation"`
+	CompanyEvaluation  string `json:"company_evaluation"`
+	Remark             string `json:"remark"`
 }
 
 // 船舶模型
 type Ship struct {
 	ID                int    `json:"id"`
 	Name              string `json:"name"`
-	ShipAge           int    `json:"ship_age"`
+	BuildDate         string `json:"build_date"`
 	ShipClass         string `json:"ship_class"`
 	OwnerCompany      string `json:"owner_company"`
 	CrewCompany       string `json:"crew_company"`
@@ -43,6 +45,12 @@ type Ship struct {
 	PortOfRegistry    string `json:"port_of_registry"`
 	ShipCondition     string `json:"ship_condition"`
 	SalaryStatus      string `json:"salary_status"`
+	LivingExpense     string `json:"living_expense"`
+	HasPension        bool   `json:"has_pension"`
+	CanOpenSeal       bool   `json:"can_open_seal"`
+	PersonnelPhone    string `json:"personnel_phone"`
+	CompanyType       string `json:"company_type"`
+	Remark            string `json:"remark"`
 }
 
 // 学校模型
@@ -57,22 +65,24 @@ type School struct {
 
 // 船公司模型
 type Company struct {
-	ID           int    `json:"id"`
-	Name         string `json:"name"`
-	Address      string `json:"address"`
-	Ships        string `json:"ships"`
-	ContactPhone string `json:"contact_phone"`
+	ID           int      `json:"id"`
+	Name         string   `json:"name"`
+	Address      string   `json:"address"`
+	ContactPhone string   `json:"contact_phone"`
+	Remark       string   `json:"remark"`
+	Ships        []string `json:"ships,omitempty"` // 拥有的船舶列表（通过查询ship表获取）
 }
 
 // 管理公司模型
 type Management struct {
-	ID           int    `json:"id"`
-	Name         string `json:"name"`
-	Address      string `json:"address"`
-	ManagedShips string `json:"managed_ships"`
-	Reputation   string `json:"reputation"`
-	SalaryStatus string `json:"salary_status"`
-	ContactPhone string `json:"contact_phone"`
+	ID           int      `json:"id"`
+	Name         string   `json:"name"`
+	Address      string   `json:"address"`
+	Reputation   string   `json:"reputation"`
+	SalaryStatus string   `json:"salary_status"`
+	ContactPhone string   `json:"contact_phone"`
+	Remark       string   `json:"remark"`
+	Ships        []string `json:"ships,omitempty"` // 管理的船舶列表（通过查询ship表获取）
 }
 
 // 通用响应结构

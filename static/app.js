@@ -4,6 +4,73 @@ let currentData = [];
 let editingId = null;
 let schoolNames = []; // 学校名称列表
 let shipNames = [];   // 船舶名称列表
+let companyNames = []; // 船公司名称列表
+let managementNames = []; // 管理公司名称列表
+
+// 统一处理“拥有/管理船舶”字段的取值与展示（兼容不同接口/数据结构）
+function getShipsLikeValue(item) {
+    if (!item || typeof item !== 'object') return undefined;
+    // 兼容：不同后端/序列化可能使用不同字段名
+    return (
+        item.ships ??
+        item.Ships ??
+        item.managed_ships ??
+        item.managedShips ??
+        item.ship_names ??
+        item.shipNames ??
+        item.vessels ??
+        item.Vessels
+    );
+}
+
+function normalizeShipList(val) {
+    if (val === undefined || val === null || val === '') return [];
+
+    // 字符串：支持“逗号分隔”
+    if (typeof val === 'string') {
+        return val
+            .split(',')
+            .map(s => s.trim())
+            .filter(Boolean);
+    }
+
+    // 数组：支持 string[] 或 object[]（{name: "..."}）
+    if (Array.isArray(val)) {
+        return val
+            .map(v => {
+                if (v === undefined || v === null) return '';
+                if (typeof v === 'string') return v.trim();
+                if (typeof v === 'object') {
+                    if (typeof v.name === 'string') return v.name.trim();
+                    if (typeof v.ship_name === 'string') return v.ship_name.trim();
+                    if (typeof v.shipName === 'string') return v.shipName.trim();
+                }
+                return String(v).trim();
+            })
+            .filter(Boolean);
+    }
+
+    // 单个对象：尽量提取 name
+    if (typeof val === 'object') {
+        if (typeof val.name === 'string') return [val.name.trim()];
+        return [String(val).trim()].filter(Boolean);
+    }
+
+    return [String(val).trim()].filter(Boolean);
+}
+
+function formatShipListForTable(val) {
+    const list = normalizeShipList(val);
+    if (list.length === 0) return '-';
+    let text = list.join(', ');
+    if (text.length > 50) text = text.substring(0, 50) + '...';
+    return text;
+}
+
+function formatShipListForDetail(val) {
+    const list = normalizeShipList(val);
+    return list.length === 0 ? '-' : list.join(', ');
+}
 
 // Tab配置 - 定义每个tab的字段和API端点
 const tabConfig = {
@@ -13,39 +80,47 @@ const tabConfig = {
         fields: [
             { key: 'name', label: '姓名', type: 'text' },
             { key: 'region', label: '地区', type: 'text' },
-            { key: 'age', label: '年龄', type: 'number' },
+            { key: 'birth_date', label: '出生年月', type: 'text' },
             { key: 'education', label: '学历', type: 'text' },
             { key: 'graduation_school', label: '毕业学校', type: 'select', relation: 'school' },
-            { key: 'status', label: '状态', type: 'text' },
+            { key: 'status', label: '状态', type: 'select', options: ['在船', '休假', '学习'] },
             { key: 'position', label: '职务', type: 'text' },
-            { key: 'previous_ships', label: '过往就职船舶', type: 'select', relation: 'ship', multiple: true },
             { key: 'current_ship', label: '现就职船舶', type: 'select', relation: 'ship' },
             { key: 'phone', label: '电话', type: 'text' },
             { key: 'height', label: '身高(cm)', type: 'number' },
             { key: 'weight', label: '体重(kg)', type: 'number' },
             { key: 'experience', label: '资历', type: 'textarea' },
-            { key: 'is_professional', label: '是否科班', type: 'checkbox' }
+            { key: 'is_professional', label: '是否科班', type: 'checkbox' },
+            { key: 'colleague_evaluation', label: '同事评价', type: 'textarea' },
+            { key: 'company_evaluation', label: '公司评价', type: 'textarea' },
+            { key: 'remark', label: '备注', type: 'textarea' }
         ],
-        tableColumns: ['ID', '姓名', '地区', '年龄', '学历', '状态', '职务', '电话', '操作']
+        tableColumns: ['ID', '姓名', '地区', '出生年月', '学历', '状态', '职务', '电话', '操作']
     },
     ship: {
         name: '船舶',
         api: '/api/ship',
         fields: [
             { key: 'name', label: '船名', type: 'text' },
-            { key: 'ship_age', label: '船龄', type: 'number' },
+            { key: 'build_date', label: '建造年月', type: 'text' },
             { key: 'ship_class', label: '船级', type: 'text' },
-            { key: 'owner_company', label: '所属公司', type: 'text' },
-            { key: 'crew_company', label: '派员公司', type: 'text' },
+            { key: 'owner_company', label: '所属公司', type: 'select', relation: 'company' },
+            { key: 'crew_company', label: '派员公司', type: 'select', relation: 'management' },
             { key: 'engine_model', label: '主机型号', type: 'text' },
             { key: 'power', label: '功率', type: 'text' },
             { key: 'gross_tonnage', label: '总吨', type: 'text' },
             { key: 'deadweight_tonnage', label: '载重吨', type: 'text' },
             { key: 'port_of_registry', label: '船籍港', type: 'text' },
             { key: 'ship_condition', label: '船况', type: 'text' },
-            { key: 'salary_status', label: '工资发放情况', type: 'text' }
+            { key: 'salary_status', label: '工资发放情况', type: 'text' },
+            { key: 'living_expense', label: '生活费', type: 'text' },
+            { key: 'has_pension', label: '是否养老', type: 'checkbox' },
+            { key: 'can_open_seal', label: '能否开封', type: 'checkbox' },
+            { key: 'personnel_phone', label: '人事电话', type: 'text' },
+            { key: 'company_type', label: '公司属性', type: 'select', options: ['国企', '民营', '个人'] },
+            { key: 'remark', label: '备注', type: 'textarea' }
         ],
-        tableColumns: ['ID', '船名', '船龄', '船级', '所属公司', '派员公司', '船籍港', '操作']
+        tableColumns: ['ID', '船名', '建造年月', '船级', '所属公司', '派员公司', '船籍港', '操作']
     },
     school: {
         name: '学校',
@@ -65,8 +140,9 @@ const tabConfig = {
         fields: [
             { key: 'name', label: '公司名', type: 'text' },
             { key: 'address', label: '地址', type: 'textarea' },
-            { key: 'ships', label: '拥有船舶', type: 'select', relation: 'ship', multiple: true },
-            { key: 'contact_phone', label: '联系电话', type: 'text' }
+            { key: 'contact_phone', label: '联系电话', type: 'text' },
+            { key: 'ships', label: '拥有船舶', type: 'display', isArray: true },
+            { key: 'remark', label: '备注', type: 'textarea' }
         ],
         tableColumns: ['ID', '公司名', '地址', '拥有船舶', '联系电话', '操作']
     },
@@ -76,10 +152,11 @@ const tabConfig = {
         fields: [
             { key: 'name', label: '公司名', type: 'text' },
             { key: 'address', label: '地址', type: 'textarea' },
-            { key: 'managed_ships', label: '管理船舶', type: 'select', relation: 'ship', multiple: true },
             { key: 'reputation', label: '信誉度', type: 'text' },
             { key: 'salary_status', label: '工资发放情况', type: 'text' },
-            { key: 'contact_phone', label: '联系电话', type: 'text' }
+            { key: 'contact_phone', label: '联系电话', type: 'text' },
+            { key: 'ships', label: '管理船舶', type: 'display', isArray: true },
+            { key: 'remark', label: '备注', type: 'textarea' }
         ],
         tableColumns: ['ID', '公司名', '地址', '管理船舶', '信誉度', '联系电话', '操作']
     }
@@ -113,6 +190,8 @@ async function loadData(keyword = '', filters = null) {
     const config = tabConfig[currentTab];
     let url = config.api;
     
+    console.log('调试 - loadData 开始:', { currentTab, keyword, filters, url });
+    
     // 如果有筛选条件，使用筛选API
     if (filters && Object.keys(filters).length > 0) {
         url += '/filter';
@@ -126,8 +205,11 @@ async function loadData(keyword = '', filters = null) {
             });
             const result = await response.json();
             
+            console.log('调试 - 筛选API响应:', result);
+            
             if (result.success) {
                 currentData = result.data || [];
+                console.log('调试 - 筛选后数据:', currentData);
                 renderTable();
             } else {
                 alert('筛选失败: ' + result.message);
@@ -149,8 +231,11 @@ async function loadData(keyword = '', filters = null) {
         const response = await fetch(url);
         const result = await response.json();
         
+        console.log('调试 - API响应:', { url, result });
+        
         if (result.success) {
             currentData = result.data || [];
+            console.log('调试 - 加载后数据:', currentData);
             renderTable();
         } else {
             alert('加载失败: ' + result.message);
@@ -168,11 +253,14 @@ function renderTable() {
     const tbody = document.getElementById('tableBody');
     const emptyState = document.getElementById('emptyState');
     
+    console.log('调试 - renderTable 开始:', { currentTab, dataLength: currentData.length, config });
+    
     // 清空表格
     thead.innerHTML = '';
     tbody.innerHTML = '';
     
     if (currentData.length === 0) {
+        console.log('调试 - 数据为空，显示空状态');
         emptyState.style.display = 'block';
         return;
     }
@@ -189,11 +277,15 @@ function renderTable() {
     thead.appendChild(headerRow);
     
     // 创建数据行
-    currentData.forEach(item => {
+    currentData.forEach((item, itemIndex) => {
+        console.log('调试 - 处理数据项:', { itemIndex, item });
         const row = document.createElement('tr');
         
         // 根据配置显示列
-        config.tableColumns.forEach(col => {
+        config.tableColumns.forEach((col, colIndex) => {
+            if (currentTab === 'management') {
+                console.log('调试 - 处理列:', { itemIndex, colIndex, col });
+            }
             const td = document.createElement('td');
             
             if (col === '操作') {
@@ -210,13 +302,13 @@ function renderTable() {
                 const fieldMap = {
                     '姓名': 'name',
                     '地区': 'region',
-                    '年龄': 'age',
+                    '出生年月': 'birth_date',
                     '学历': 'education',
                     '状态': 'status',
                     '职务': 'position',
                     '电话': 'phone',
                     '船名': 'name',
-                    '船龄': 'ship_age',
+                    '建造年月': 'build_date',
                     '船级': 'ship_class',
                     '所属公司': 'owner_company',
                     '派员公司': 'crew_company',
@@ -226,24 +318,45 @@ function renderTable() {
                     '招生电话': 'admission_phone',
                     '级别': 'level',
                     '公司名': 'name',
-                    '拥有船舶': 'ships',
                     '联系电话': 'contact_phone',
-                    '管理船舶': 'managed_ships',
-                    '信誉度': 'reputation'
+                    '信誉度': 'reputation',
+                    '拥有船舶': 'ships',
+                    '管理船舶': 'ships'
                 };
                 
                 const fieldKey = fieldMap[col];
-                if (fieldKey && item[fieldKey] !== undefined && item[fieldKey] !== null) {
-                    let value = item[fieldKey];
-                    // 如果是布尔值，显示中文
-                    if (typeof value === 'boolean') {
-                        value = value ? '是' : '否';
+                if (fieldKey) {
+                    // “船舶列表”字段：统一兼容处理（避免管理公司tab取不到或结构不同导致不显示）
+                    if (fieldKey === 'ships') {
+                        const raw = getShipsLikeValue(item);
+                        console.log('调试 - 管理船舶字段:', {
+                            col: col,
+                            fieldKey: fieldKey,
+                            rawValue: raw,
+                            item: item,
+                            itemShips: item.ships
+                        });
+                        td.textContent = formatShipListForTable(raw);
+                    } else {
+                        let value = item[fieldKey];
+                        // 如果是数组（普通数组字段）
+                        if (Array.isArray(value)) {
+                            value = value.length > 0 ? value.join(', ') : '-';
+                        }
+                        // 如果是布尔值，显示中文
+                        else if (typeof value === 'boolean') {
+                            value = value ? '是' : '否';
+                        }
+                        // 如果值不存在或为空字符串
+                        else if (value === undefined || value === null || value === '') {
+                            value = '-';
+                        }
+                        // 如果文本太长，截断
+                        if (typeof value === 'string' && value.length > 50) {
+                            value = value.substring(0, 50) + '...';
+                        }
+                        td.textContent = value;
                     }
-                    // 如果文本太长，截断
-                    if (typeof value === 'string' && value.length > 30) {
-                        value = value.substring(0, 30) + '...';
-                    }
-                    td.textContent = value;
                 } else {
                     td.textContent = '-';
                 }
@@ -289,6 +402,20 @@ async function loadRelationData() {
         if (shipResult.success) {
             shipNames = shipResult.data || [];
         }
+        
+        // 加载船公司名称列表
+        const companyResponse = await fetch('/api/companies/names');
+        const companyResult = await companyResponse.json();
+        if (companyResult.success) {
+            companyNames = companyResult.data || [];
+        }
+        
+        // 加载管理公司名称列表
+        const managementResponse = await fetch('/api/managements/names');
+        const managementResult = await managementResponse.json();
+        if (managementResult.success) {
+            managementNames = managementResult.data || [];
+        }
     } catch (error) {
         console.error('加载关联数据失败:', error);
     }
@@ -309,7 +436,25 @@ async function showFormModal(data = null) {
     // 生成表单
     form.innerHTML = '';
     
-    config.fields.forEach(field => {
+    // 过滤掉 ships 字段和 display 类型的字段，确保它们不会出现在表单中
+    const formFields = config.fields.filter(field => {
+        // 跳过 display 类型的字段
+        if (field.type === 'display') {
+            console.log('跳过 display 字段:', field.key);
+            return false;
+        }
+        // 明确跳过 ships 字段（船公司和管理公司的船舶字段，由船舶表绑定，不需要在表单中选择）
+        if (field.key === 'ships') {
+            console.log('跳过 ships 字段:', field.key, field.label);
+            return false;
+        }
+        return true;
+    });
+    
+    console.log('表单字段列表:', formFields.map(f => ({ key: f.key, label: f.label, type: f.type })));
+    
+    formFields.forEach(field => {
+        
         const group = document.createElement('div');
         group.className = 'form-group';
         
@@ -319,12 +464,19 @@ async function showFormModal(data = null) {
         
         let input;
         if (field.type === 'select') {
-            // 根据关联类型加载选项
+            // 根据关联类型或静态选项加载选项
             let options = [];
-            if (field.relation === 'school') {
+            if (field.options) {
+                // 静态选项（如：公司属性的选项）
+                options = field.options.map(opt => ({ id: opt, name: opt }));
+            } else if (field.relation === 'school') {
                 options = schoolNames;
             } else if (field.relation === 'ship') {
                 options = shipNames;
+            } else if (field.relation === 'company') {
+                options = companyNames;
+            } else if (field.relation === 'management') {
+                options = managementNames;
             }
             
             // 多选模式：使用复选框列表
@@ -431,7 +583,22 @@ async function saveData() {
     const formData = new FormData(form);
     
     const data = {};
-    config.fields.forEach(field => {
+    
+    // 过滤掉 ships 字段和 display 类型的字段，确保它们不会被保存
+    const formFields = config.fields.filter(field => {
+        // 跳过 display 类型的字段
+        if (field.type === 'display') {
+            return false;
+        }
+        // 明确跳过 ships 字段（船公司和管理公司的船舶字段，由船舶表绑定，不需要保存）
+        if (field.key === 'ships') {
+            return false;
+        }
+        return true;
+    });
+    
+    formFields.forEach(field => {
+        
         if (field.type === 'checkbox' && !field.multiple) {
             // 单个复选框
             const input = document.getElementById(field.key);
@@ -540,9 +707,20 @@ async function viewDetail(id) {
                 
                 const value = document.createElement('div');
                 value.className = 'detail-value';
-                let val = item[field.key];
+                let val;
+                if (field.key === 'ships') {
+                    val = getShipsLikeValue(item);
+                } else {
+                    val = item[field.key];
+                }
                 if (val === undefined || val === null || val === '') {
                     val = '-';
+                } else if (field.key === 'ships') {
+                    // 船舶列表：详情中展示完整内容
+                    val = formatShipListForDetail(val);
+                } else if (Array.isArray(val)) {
+                    // 如果是数组，显示为逗号分隔的字符串
+                    val = val.length > 0 ? val.join(', ') : '-';
                 } else if (typeof val === 'boolean') {
                     val = val ? '是' : '否';
                 }
@@ -602,8 +780,12 @@ function showFilterModal() {
     
     // 为每个字段创建筛选输入框
     config.fields.forEach(field => {
-        // 跳过某些字段类型
-        if (field.type === 'textarea' || (field.type === 'checkbox' && !field.multiple)) {
+        // 跳过某些字段类型，但允许备注字段参与筛选
+        if (field.type === 'display' || (field.type === 'checkbox' && !field.multiple)) {
+            return;
+        }
+        // 备注字段虽然是 textarea，但需要支持关键词筛选
+        if (field.type === 'textarea' && field.key !== 'remark') {
             return;
         }
         
@@ -633,10 +815,17 @@ function showFilterModal() {
             
             // 加载选项
             let options = [];
-            if (field.relation === 'school') {
+            if (field.options) {
+                // 静态选项（如：公司属性的选项）
+                options = field.options.map(opt => ({ id: opt, name: opt }));
+            } else if (field.relation === 'school') {
                 options = schoolNames;
             } else if (field.relation === 'ship') {
                 options = shipNames;
+            } else if (field.relation === 'company') {
+                options = companyNames;
+            } else if (field.relation === 'management') {
+                options = managementNames;
             }
             
             options.forEach(option => {
@@ -672,6 +861,13 @@ function showFilterModal() {
             rangeGroup.appendChild(minInput);
             rangeGroup.appendChild(maxInput);
             input = rangeGroup;
+        } else if (field.type === 'textarea' && field.key === 'remark') {
+            // 备注字段：使用文本输入框支持关键词查询
+            input = document.createElement('input');
+            input.type = 'text';
+            input.id = 'filter_' + field.key;
+            input.value = currentFilters[field.key] || '';
+            input.placeholder = '输入备注关键词筛选';
         } else {
             // 文本字段
             input = document.createElement('input');
@@ -695,7 +891,11 @@ function applyFilter() {
     const filters = {};
     
     config.fields.forEach(field => {
-        if (field.type === 'textarea' || (field.type === 'checkbox' && !field.multiple)) {
+        if (field.type === 'display' || (field.type === 'checkbox' && !field.multiple)) {
+            return;
+        }
+        // 备注字段虽然是 textarea，但需要支持关键词筛选
+        if (field.type === 'textarea' && field.key !== 'remark') {
             return;
         }
         
@@ -727,7 +927,11 @@ function resetFilter() {
     const config = tabConfig[currentTab];
     
     config.fields.forEach(field => {
-        if (field.type === 'textarea' || (field.type === 'checkbox' && !field.multiple)) {
+        if ((field.type === 'checkbox' && !field.multiple)) {
+            return;
+        }
+        // 备注字段虽然是 textarea，但需要支持关键词筛选
+        if (field.type === 'textarea' && field.key !== 'remark') {
             return;
         }
         
