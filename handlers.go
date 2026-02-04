@@ -355,7 +355,7 @@ func filterCrew(w http.ResponseWriter, r *http.Request) {
 // ==================== 船舶相关处理函数 ====================
 
 func getShipList(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.Query("SELECT id, name, build_date, ship_class, owner_company, crew_company, engine_model, power, gross_tonnage, deadweight_tonnage, port_of_registry, ship_condition, salary_status, living_expense, has_pension, can_open_seal, personnel_phone, ship_phone, company_type, remark FROM ship ORDER BY id DESC")
+	rows, err := db.Query("SELECT id, name, build_date, ship_class, owner_company, crew_company, engine_model, power, gross_tonnage, deadweight_tonnage, port_of_registry, ship_condition, salary_status, living_expense, has_pension, can_open_seal, personnel_phone, COALESCE(ship_phone, ''), company_type, remark FROM ship ORDER BY id DESC")
 	if err != nil {
 		sendError(w, http.StatusInternalServerError, "查询失败: "+err.Error())
 		return
@@ -379,7 +379,7 @@ func getShip(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var s Ship
-	err = db.QueryRow("SELECT id, name, build_date, ship_class, owner_company, crew_company, engine_model, power, gross_tonnage, deadweight_tonnage, port_of_registry, ship_condition, salary_status, living_expense, has_pension, can_open_seal, personnel_phone, ship_phone, company_type, remark FROM ship WHERE id = ?", id).
+	err = db.QueryRow("SELECT id, name, build_date, ship_class, owner_company, crew_company, engine_model, power, gross_tonnage, deadweight_tonnage, port_of_registry, ship_condition, salary_status, living_expense, has_pension, can_open_seal, personnel_phone, COALESCE(ship_phone, ''), company_type, remark FROM ship WHERE id = ?", id).
 		Scan(&s.ID, &s.Name, &s.BuildDate, &s.ShipClass, &s.OwnerCompany, &s.CrewCompany, &s.EngineModel, &s.Power, &s.GrossTonnage, &s.DeadweightTonnage, &s.PortOfRegistry, &s.ShipCondition, &s.SalaryStatus, &s.LivingExpense, &s.HasPension, &s.CanOpenSeal, &s.PersonnelPhone, &s.ShipPhone, &s.CompanyType, &s.Remark)
 
 	if err == sql.ErrNoRows {
@@ -519,7 +519,7 @@ func removeShipFromList(shipList string, shipToRemove string) string {
 
 func searchShip(w http.ResponseWriter, r *http.Request) {
 	keyword := r.URL.Query().Get("keyword")
-	query := "SELECT id, name, build_date, ship_class, owner_company, crew_company, engine_model, power, gross_tonnage, deadweight_tonnage, port_of_registry, ship_condition, salary_status, living_expense, has_pension, can_open_seal, personnel_phone, ship_phone, company_type, remark FROM ship"
+	query := "SELECT id, name, build_date, ship_class, owner_company, crew_company, engine_model, power, gross_tonnage, deadweight_tonnage, port_of_registry, ship_condition, salary_status, living_expense, has_pension, can_open_seal, personnel_phone, COALESCE(ship_phone, ''), company_type, remark FROM ship"
 	searchFields := []string{"name", "ship_class", "owner_company", "crew_company", "engine_model", "port_of_registry", "ship_condition", "salary_status", "living_expense", "personnel_phone", "ship_phone", "company_type", "remark"}
 
 	sqlQuery, args := buildSearchQuery(query, keyword, searchFields)
@@ -548,7 +548,7 @@ func filterShip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := "SELECT id, name, build_date, ship_class, owner_company, crew_company, engine_model, power, gross_tonnage, deadweight_tonnage, port_of_registry, ship_condition, salary_status, living_expense, has_pension, can_open_seal, personnel_phone, ship_phone, company_type, remark FROM ship"
+	query := "SELECT id, name, build_date, ship_class, owner_company, crew_company, engine_model, power, gross_tonnage, deadweight_tonnage, port_of_registry, ship_condition, salary_status, living_expense, has_pension, can_open_seal, personnel_phone, COALESCE(ship_phone, ''), company_type, remark FROM ship"
 	sqlQuery, args := buildFilterQuery(query, filters)
 	sqlQuery += " ORDER BY id DESC"
 
