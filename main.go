@@ -45,8 +45,9 @@ func main() {
 	// 设置路由
 	r := mux.NewRouter()
 
-	// 静态文件服务
-	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./static/"))))
+	// 静态文件服务（禁用缓存，确保开发时总是获取最新文件）
+	staticFileServer := http.StripPrefix("/static/", http.FileServer(http.Dir("./static/")))
+	r.PathPrefix("/static/").Handler(noCacheHandler(staticFileServer))
 
 	// 主页
 	r.HandleFunc("/", indexHandler).Methods("GET")
@@ -117,6 +118,22 @@ func getEnv(key, defaultValue string) string {
 	return defaultValue
 }
 
+// noCacheHandler 包装一个Handler，添加禁用缓存的响应头
+func noCacheHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 设置禁用缓存的响应头
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		w.Header().Set("Pragma", "no-cache")
+		w.Header().Set("Expires", "0")
+		// 调用下一个处理器
+		next.ServeHTTP(w, r)
+	})
+}
+
 func indexHandler(w http.ResponseWriter, r *http.Request) {
+	// 主页也禁用缓存，确保HTML文件更新后能立即看到
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
 	http.ServeFile(w, r, "./static/index.html")
 }
