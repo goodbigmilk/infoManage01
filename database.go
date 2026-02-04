@@ -22,6 +22,16 @@ func initTables() {
 	fmt.Println("数据库表初始化完成")
 }
 
+// 数据库迁移：为现有表添加新字段
+func migrateTables() {
+	// 检查并添加ship表的ship_phone字段
+	_, err := db.Exec(`ALTER TABLE ship ADD COLUMN ship_phone VARCHAR(20) COMMENT '船舶联系电话' AFTER personnel_phone`)
+	if err != nil {
+		// 字段可能已存在，忽略错误
+		fmt.Printf("迁移ship表: %v (如果字段已存在可忽略)\n", err)
+	}
+}
+
 // 创建船员表
 func createCrewTable() string {
 	return `CREATE TABLE IF NOT EXISTS crew (
@@ -73,6 +83,7 @@ func createShipTable() string {
 		has_pension TINYINT(1) DEFAULT 0 COMMENT '是否养老',
 		can_open_seal TINYINT(1) DEFAULT 1 COMMENT '能否开封',
 		personnel_phone VARCHAR(20) COMMENT '人事电话',
+		ship_phone VARCHAR(20) COMMENT '船舶联系电话',
 		company_type VARCHAR(50) COMMENT '公司属性',
 		remark TEXT COMMENT '备注',
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

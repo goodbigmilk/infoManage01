@@ -49,6 +49,7 @@ type Ship struct {
 	HasPension        bool   `json:"has_pension"`
 	CanOpenSeal       bool   `json:"can_open_seal"`
 	PersonnelPhone    string `json:"personnel_phone"`
+	ShipPhone         string `json:"ship_phone"`
 	CompanyType       string `json:"company_type"`
 	Remark            string `json:"remark"`
 }
@@ -132,6 +133,27 @@ func buildSearchQuery(baseQuery, keyword string, searchFields []string) (string,
 
 	whereClause := " WHERE " + strings.Join(conditions, " OR ")
 	return baseQuery + whereClause, args
+}
+
+// 检查字符串是否包含所有指定的子字符串（顺序无关）
+func containsAllShips(shipList string, searchShips []string) bool {
+	if shipList == "" {
+		return false
+	}
+	// 将船名列表转换为小写并分割
+	ships := strings.Split(strings.ToLower(shipList), ",")
+	shipMap := make(map[string]bool)
+	for _, ship := range ships {
+		shipMap[strings.TrimSpace(ship)] = true
+	}
+	
+	// 检查所有搜索船名是否都在列表中
+	for _, searchShip := range searchShips {
+		if !shipMap[strings.ToLower(strings.TrimSpace(searchShip))] {
+			return false
+		}
+	}
+	return true
 }
 
 // 构建筛选查询（通用函数）

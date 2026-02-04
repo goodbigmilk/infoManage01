@@ -84,8 +84,8 @@ const tabConfig = {
             { key: 'education', label: '学历', type: 'text' },
             { key: 'graduation_school', label: '毕业学校', type: 'select', relation: 'school' },
             { key: 'status', label: '状态', type: 'select', options: ['在船', '休假', '学习'] },
-            { key: 'position', label: '职务', type: 'text' },
-            { key: 'current_ship', label: '现就职船舶', type: 'select', relation: 'ship' },
+            { key: 'position', label: '职务', type: 'select', options: ['船长', '大副', '二副', '三副', '水手长', '水手', '实习三副', '实习水手', '轮机长', '大管轮', '二管轮', '三管轮', '机工长', '机工', '实习三管', '实习机工', '大厨'] },
+            { key: 'current_ship', label: '现就职船舶', type: 'select', relation: 'ship', multiple: true },
             { key: 'phone', label: '电话', type: 'text' },
             { key: 'height', label: '身高(cm)', type: 'number' },
             { key: 'weight', label: '体重(kg)', type: 'number' },
@@ -112,6 +112,7 @@ const tabConfig = {
             { key: 'deadweight_tonnage', label: '载重吨', type: 'text' },
             { key: 'port_of_registry', label: '船籍港', type: 'text' },
             { key: 'ship_condition', label: '船况', type: 'text' },
+            { key: 'ship_phone', label: '船舶联系电话', type: 'text' },
             { key: 'salary_status', label: '工资发放情况', type: 'text' },
             { key: 'living_expense', label: '生活费', type: 'text' },
             { key: 'has_pension', label: '是否养老', type: 'checkbox' },
@@ -120,7 +121,7 @@ const tabConfig = {
             { key: 'company_type', label: '公司属性', type: 'select', options: ['国企', '民营', '个人'] },
             { key: 'remark', label: '备注', type: 'textarea' }
         ],
-        tableColumns: ['ID', '船名', '建造年月', '船级', '所属公司', '派员公司', '船籍港', '操作']
+        tableColumns: ['ID', '船名', '建造年月', '船级', '所属公司', '派员公司', '船籍港', '船舶联系电话', '操作']
     },
     school: {
         name: '学校',
@@ -313,6 +314,7 @@ function renderTable() {
                     '所属公司': 'owner_company',
                     '派员公司': 'crew_company',
                     '船籍港': 'port_of_registry',
+                    '船舶联系电话': 'ship_phone',
                     '名称': 'name',
                     '地址': 'address',
                     '招生电话': 'admission_phone',
@@ -718,6 +720,9 @@ async function viewDetail(id) {
                 } else if (field.key === 'ships') {
                     // 船舶列表：详情中展示完整内容
                     val = formatShipListForDetail(val);
+                } else if (field.key === 'current_ship') {
+                    // 现就职船舶：支持多选，显示为逗号分隔的列表
+                    val = formatShipListForDetail(val);
                 } else if (Array.isArray(val)) {
                     // 如果是数组，显示为逗号分隔的字符串
                     val = val.length > 0 ? val.join(', ') : '-';
@@ -771,12 +776,15 @@ function performSearch() {
 }
 
 // 显示筛选模态框
-function showFilterModal() {
+async function showFilterModal() {
     const config = tabConfig[currentTab];
     const modal = document.getElementById('filterModal');
     const filterContent = document.getElementById('filterContent');
     
     filterContent.innerHTML = '';
+    
+    // 加载关联数据（用于下拉框和复选框）
+    await loadRelationData();
     
     // 为每个字段创建筛选输入框
     config.fields.forEach(field => {
@@ -797,12 +805,53 @@ function showFilterModal() {
         
         let input;
         if (field.type === 'select' && field.multiple) {
-            // 多选字段：使用文本输入，支持逗号分隔
-            input = document.createElement('input');
-            input.type = 'text';
-            input.placeholder = '多个值用逗号分隔';
-            input.id = 'filter_' + field.key;
-            input.value = currentFilters[field.key] || '';
+            // 多选字段：使用复选框列表
+            const checkboxContainer = document.createElement('div');
+            checkboxContainer.className = 'checkbox-group';
+            checkboxContainer.id = 'filter_' + field.key + '_container';
+            
+            // 处理已选中的值（从currentFilters中获取）
+            let selectedValues = [];
+            if (currentFilters[field.key]) {
+                selectedValues = typeof currentFilters[field.key] === 'string' 
+                    ? currentFilters[field.key].split(',').map(v => v.trim()).filter(v => v)
+                    : Array.isArray(currentFilters[field.key]) ? currentFilters[field.key] : [];
+            }
+            
+            // 加载选项
+            let options = [];
+            if (field.relation === 'school') {
+                options = schoolNames;
+            } else if (field.relation === 'ship') {
+                options = shipNames;
+            } else if (field.relation === 'company') {
+                options = companyNames;
+            } else if (field.relation === 'management') {
+                options = managementNames;
+            }
+            
+            // 为每个选项创建复选框
+            options.forEach(option => {
+                const checkboxWrapper = document.createElement('div');
+                checkboxWrapper.className = 'checkbox-item';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = 'filter_' + field.key + '_' + option.id;
+                checkbox.name = 'filter_' + field.key;
+                checkbox.value = option.name;
+                checkbox.checked = selectedValues.includes(option.name);
+                
+                const checkboxLabel = document.createElement('label');
+                checkboxLabel.setAttribute('for', 'filter_' + field.key + '_' + option.id);
+                checkboxLabel.textContent = option.name;
+                
+                checkboxWrapper.appendChild(checkbox);
+                checkboxWrapper.appendChild(checkboxLabel);
+                checkboxContainer.appendChild(checkboxWrapper);
+            });
+            
+            input = checkboxContainer;
         } else if (field.type === 'select') {
             // 单选下拉框
             input = document.createElement('select');
@@ -908,6 +957,15 @@ function applyFilter() {
             if (maxInput && maxInput.value) {
                 filters[field.key + '_max'] = maxInput.value;
             }
+        } else if (field.type === 'select' && field.multiple) {
+            // 多选复选框：从复选框容器中获取所有选中的值
+            const container = document.getElementById('filter_' + field.key + '_container');
+            if (container) {
+                const checkboxes = container.querySelectorAll('input[type="checkbox"]:checked');
+                if (checkboxes.length > 0) {
+                    filters[field.key] = Array.from(checkboxes).map(cb => cb.value).join(', ');
+                }
+            }
         } else {
             const input = document.getElementById('filter_' + field.key);
             if (input && input.value) {
@@ -940,6 +998,13 @@ function resetFilter() {
             const maxInput = document.getElementById('filter_' + field.key + '_max');
             if (minInput) minInput.value = '';
             if (maxInput) maxInput.value = '';
+        } else if (field.type === 'select' && field.multiple) {
+            // 多选复选框：取消所有选中
+            const container = document.getElementById('filter_' + field.key + '_container');
+            if (container) {
+                const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+                checkboxes.forEach(cb => cb.checked = false);
+            }
         } else {
             const input = document.getElementById('filter_' + field.key);
             if (input) input.value = '';

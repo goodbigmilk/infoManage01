@@ -105,7 +105,7 @@ func main() {
 	api.HandleFunc("/management/{id}", updateManagement).Methods("PUT")
 	api.HandleFunc("/management/{id}", deleteManagement).Methods("DELETE")
 
-	port := getEnv("PORT", "8080")
+	port := getEnv("PORT", "9901")
 	fmt.Printf("服务器启动在端口 %s\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, r))
 }
