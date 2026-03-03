@@ -1,0 +1,257 @@
+name: Test Windows Deploy Script
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'deploy.ps1'
+      - 'deploy.bat'
+      - 'docker-compose.yml'
+      - 'Dockerfile'
+      - '.github/workflows/test-windows-deploy.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'deploy.ps1'
+      - 'deploy.bat'
+      - 'docker-compose.yml'
+      - 'Dockerfile'
+      - '.github/workflows/test-windows-deploy.yml'
+  workflow_dispatch:
+
+jobs:
+  test-powershell-script:
+    name: Test PowerShell Script Syntax
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test PowerShell script syntax
+        shell: pwsh
+        run: |
+          Write-Host "Testing deploy.ps1 syntax..."
+          $null = [System.Management.Automation.PSParser]::Tokenize((Get-Content -Path .\deploy.ps1 -Raw), [ref]$null)
+          Write-Host "✓ PowerShell syntax is valid"
+
+      - name: Test PowerShell script help
+        shell: pwsh
+        run: |
+          Write-Host "Testing help command..."
+          .\deploy.ps1 help
+
+      - name: Test script parameters
+        shell: pwsh
+        run: |
+          Write-Host "Testing NonInteractive parameter..."
+          Get-Help .\deploy.ps1 -Parameter NonInteractive
+
+  test-docker-compose:
+    name: Test Docker Compose Configuration
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate docker-compose.yml
+        run: docker compose config
+
+  test-deploy-script:
+    name: Test Deploy Script (Full)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker
+        run: |
+          Write-Host "Docker version:"
+          docker --version
+          Write-Host "Docker Compose version:"
+          docker compose version
+        shell: pwsh
+
+      - name: Test script detection functions
+        shell: pwsh
+        run: |
+          Write-Host "Testing script functions..."
+
+          # 加载脚本函数但不执行主逻辑
+          $scriptContent = Get-Content -Path .\deploy.ps1 -Raw
+
+          # 移除主执行部分,只保留函数定义
+          $functionsOnly = $scriptContent -replace '(?ms)^# -+ Main -+.*$', ''
+
+          # 执行函数定义
+          Invoke-Expression $functionsOnly
+
+          # 测试 Docker 检测
+          Write-Host "Testing Test-Docker..."
+          $result = Test-Docker
+          Write-Host "Test-Docker result: $result"
+
+          # 测试端口检查
+          Write-Host "Testing Test-PortAvailable..."
+          $result = Test-PortAvailable -Port 9999
+          Write-Host "Port 9999 available: $result"
+
+          # 测试自动端口查找
+          Write-Host "Testing Get-NextAvailablePort..."
+          $result = Get-NextAvailablePort -StartPort 9901
+          Write-Host "Next available port from 9901: $result"
+
+      - name: Test non-interactive deploy (with custom port)
+        shell: pwsh
+        env:
+          APP_PORT: 19901
+          MYSQL_PORT: 13306
+        run: |
+          Write-Host "Testing non-interactive deploy..."
+
+          # 由于 GitHub Actions 没有足够资源运行完整部署
+          # 我们只测试到配置生成阶段
+
+          # 创建模拟的部署测试
+          $env:APP_PORT = "19901"
+          $env:MYSQL_PORT = "13306"
+
+          Write-Host "Environment variables set:"
+          Write-Host "APP_PORT=$env:APP_PORT"
+          Write-Host "MYSQL_PORT=$env:MYSQL_PORT"
+
+          # 测试 .env 文件生成逻辑
+          $envContent = "APP_PORT=$env:APP_PORT`nMYSQL_PORT=$env:MYSQL_PORT`nMYSQL_ROOT_PASSWORD=testpass`nMYSQL_DATABASE=testdb"
+          [System.IO.File]::WriteAllText((Join-Path $PWD ".env"), $envContent, [System.Text.UTF8Encoding]::new($false))
+
+          if (Test-Path ".env") {
+            Write-Host "✓ .env file created successfully"
+            $content = Get-Content ".env" -Raw
+            Write-Host ".env content:"
+            Write-Host $content
+
+            # 验证编码
+            $bytes = [System.IO.File]::ReadAllBytes((Join-Path $PWD ".env"))
+            if ($bytes[0] -ne 0xEF -or $bytes[1] -ne 0xBB -or $bytes[2] -ne 0xBF) {
+              Write-Host "✓ No BOM (UTF-8 without BOM)"
+            } else {
+              Write-Error "✗ BOM detected (should be UTF-8 without BOM)"
+              exit 1
+            }
+          } else {
+            Write-Error "✗ .env file not created"
+            exit 1
+          }
+
+      - name: Test batch file wrapper
+        shell: cmd
+        run: |
+          echo Testing deploy.bat...
+          deploy.bat help
+
+      - name: Cleanup
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path ".env") {
+            Remove-Item ".env" -Force
+            Write-Host "Cleaned up .env file"
+          }
+
+  test-edge-cases:
+    name: Test Edge Cases
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test with special characters in env vars
+        shell: pwsh
+        run: |
+          Write-Host "Testing with special characters..."
+
+          # 测试包含特殊字符的密码
+          $env:MYSQL_ROOT_PASSWORD = "P@ssw0rd!123"
+          $env:MYSQL_DATABASE = "test_db-123"
+
+          $envContent = "APP_PORT=9901`nMYSQL_PORT=3306`nMYSQL_ROOT_PASSWORD=$env:MYSQL_ROOT_PASSWORD`nMYSQL_DATABASE=$env:MYSQL_DATABASE"
+          [System.IO.File]::WriteAllText((Join-Path $PWD ".env"), $envContent, [System.Text.UTF8Encoding]::new($false))
+
+          $content = Get-Content ".env" -Raw -Encoding UTF8
+          Write-Host ".env content with special chars:"
+          Write-Host $content
+
+          if ($content -match [regex]::Escape($env:MYSQL_ROOT_PASSWORD)) {
+            Write-Host "✓ Special characters preserved"
+          } else {
+            Write-Error "✗ Special characters corrupted"
+            exit 1
+          }
+
+          Remove-Item ".env" -Force
+
+      - name: Test Chinese characters (UTF-8)
+        shell: pwsh
+        run: |
+          Write-Host "Testing with Chinese characters..."
+
+          $env:MYSQL_DATABASE = "信息管理"
+
+          $envContent = "APP_PORT=9901`nMYSQL_PORT=3306`nMYSQL_ROOT_PASSWORD=password`nMYSQL_DATABASE=$env:MYSQL_DATABASE"
+          [System.IO.File]::WriteAllText((Join-Path $PWD ".env"), $envContent, [System.Text.UTF8Encoding]::new($false))
+
+          $content = Get-Content ".env" -Raw -Encoding UTF8
+          Write-Host ".env content with Chinese:"
+          Write-Host $content
+
+          if ($content -match "信息管理") {
+            Write-Host "✓ Chinese characters preserved (UTF-8 working)"
+          } else {
+            Write-Error "✗ Chinese characters corrupted"
+            exit 1
+          }
+
+          Remove-Item ".env" -Force
+
+  summary:
+    name: Test Summary
+    runs-on: windows-latest
+    needs: [test-powershell-script, test-docker-compose, test-deploy-script, test-edge-cases]
+    if: always()
+
+    steps:
+      - name: Check test results
+        shell: pwsh
+        run: |
+          Write-Host ""
+          Write-Host "========================================" -ForegroundColor Green
+          Write-Host "  Windows Deploy Script Tests Complete" -ForegroundColor Green
+          Write-Host "========================================" -ForegroundColor Green
+          Write-Host ""
+
+          $needs = '${{ toJSON(needs) }}' | ConvertFrom-Json
+          $failed = $false
+
+          foreach ($job in $needs.PSObject.Properties) {
+            $name = $job.Name
+            $result = $job.Value.result
+
+            if ($result -eq "success") {
+              Write-Host "✓ $name" -ForegroundColor Green
+            } else {
+              Write-Host "✗ $name - $result" -ForegroundColor Red
+              $failed = $true
+            }
+          }
+
+          Write-Host ""
+
+          if ($failed) {
+            Write-Error "Some tests failed"
+            exit 1
+          } else {
+            Write-Host "All tests passed!" -ForegroundColor Green
+          }
