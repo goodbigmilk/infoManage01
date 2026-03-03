@@ -1,14 +1,38 @@
-# ============================================================
-#  infoManage 一键部署工具 (Windows PowerShell)
-#  自动检测并安装 Docker Desktop
-# ============================================================
+<#
+.SYNOPSIS
+    infoManage 一键部署工具 (Windows PowerShell)
+
+.DESCRIPTION
+    自动检测并安装 Docker Desktop, 一键部署 infoManage 应用
+
+.PARAMETER Command
+    执行的命令: deploy, stop, restart, status, logs, clean, help
+
+.PARAMETER NonInteractive
+    非交互模式，用于 CI/CD 环境，自动处理所有提示
+
+.EXAMPLE
+    .\deploy.ps1
+    一键部署应用
+
+.EXAMPLE
+    .\deploy.ps1 -NonInteractive
+    非交互模式部署（适用于 CI/CD）
+
+.EXAMPLE
+    .\deploy.ps1 logs
+    查看应用日志
+
+.LINK
+    https://github.com/goodbigmilk/infoManage01
+#>
 
 param(
-    [Parameter(Position = 0)]
+    [Parameter(Position = 0, HelpMessage = "Command to execute")]
     [ValidateSet("deploy", "stop", "restart", "status", "logs", "clean", "help")]
     [string]$Command = "deploy",
 
-    [Parameter()]
+    [Parameter(HelpMessage = "Run in non-interactive mode for CI/CD")]
     [switch]$NonInteractive
 )
 
