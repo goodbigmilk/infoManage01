@@ -34,7 +34,57 @@ infoManage/
 └── README.md        # 项目说明文档
 ```
 
-## 安装和运行
+## 快速开始
+
+### 🚀 Windows 用户推荐方式（无需 Docker）
+
+**一键部署，无需任何配置！**
+
+1. **下载项目**
+   ```bash
+   git clone https://github.com/goodbigmilk/infoManage01.git
+   cd infoManage01
+   ```
+
+2. **右键以管理员身份运行**
+   ```
+   右键 deploy-native.bat → 以管理员身份运行
+   ```
+
+3. **等待自动安装完成**（约 3-5 分钟）
+   - 自动下载并安装 Go 1.21
+   - 自动下载并安装 MySQL 8.0
+   - 自动编译和启动应用
+   - 使用国内镜像源，下载快速
+
+4. **打开浏览器访问**
+   ```
+   http://localhost:9901
+   ```
+
+**就这么简单！** 🎉
+
+📖 **详细文档**: 查看 [WINDOWS_NATIVE_DEPLOY.md](WINDOWS_NATIVE_DEPLOY.md)
+
+📋 **部署方案选择**: 查看 [DEPLOY_GUIDE.md](DEPLOY_GUIDE.md) 了解 Docker 版本和原生版本的区别
+
+---
+
+### 🐳 Docker 部署（跨平台）
+
+如果你已经安装了 Docker，或需要跨平台部署：
+
+```bash
+# Windows
+deploy.bat
+
+# Linux/Mac
+./deploy.sh
+```
+
+---
+
+## 手动安装和运行
 
 ### 1. 环境要求
 
