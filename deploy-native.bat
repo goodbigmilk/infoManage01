@@ -2,17 +2,17 @@
 chcp 65001 >nul 2>&1
 echo.
 echo  ================================================
-echo    infoManage - Windows 原生一键部署
-echo    (不需要 Docker，无需 WSL)
+echo    infoManage - Windows Native Deploy
+echo    (No Docker, No WSL)
 echo  ================================================
 echo.
 
-REM 检查管理员权限
+REM Check admin privileges
 net session >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [错误] 需要管理员权限！
+    echo [ERROR] Administrator privileges required!
     echo.
-    echo 请右键此文件，选择 "以管理员身份运行"
+    echo Right-click this file and select "Run as administrator"
     echo.
     pause
     exit /b 1
@@ -23,16 +23,17 @@ if "%CMD%"=="" set CMD=install
 
 where powershell >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [错误] PowerShell 未找到
+    echo [ERROR] PowerShell not found
     pause
     exit /b 1
 )
 
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0deploy-windows-native.ps1" %CMD%
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "[Console]::OutputEncoding = [Console]::InputEncoding = [System.Text.Encoding]::UTF8; & '%~dp0deploy-windows-native.ps1' -Command '%CMD%'"
 
 if %errorlevel% neq 0 (
     echo.
-    echo  部署遇到错误，请检查上面的输出。
+    echo  Deployment encountered an error. Check the output above.
 )
 
 pause
